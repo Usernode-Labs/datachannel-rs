@@ -85,6 +85,9 @@ fn link_static_libdatachannel(out_dir: &str, profile: &str) {
 }
 
 fn main() {
+    let target = env::var("TARGET").unwrap();
+    #[allow(unused_variables)]
+    let is_android = target.contains("android");
     let out_dir = env::var("OUT_DIR").unwrap();
 
     #[cfg(feature = "vendored-libdatachannel")]
@@ -135,6 +138,21 @@ fn main() {
         cmake_conf.define("NO_EXAMPLES", "ON");
         if !cfg!(feature = "media") {
             cmake_conf.define("NO_MEDIA", "ON");
+        }
+
+    if is_android {
+        let ndk = env::var("ANDROID_NDK_HOME").expect("ANDROID_NDK_HOME must be set for Android builds");
+        let abi = match target.as_str() {
+            "armv7-linux-androideabi" => "armeabi-v7a",
+            "aarch64-linux-android" => "arm64-v8a",
+            "i686-linux-android" => "x86",
+            "x86_64-linux-android" => "x86_64",
+            _ => panic!("Unsupported Android target: {}", target),
+        };
+
+        let toolchain_file = PathBuf::from(&ndk).join("build/cmake/android.toolchain.cmake");
+        cmake_conf.define("CMAKE_TOOLCHAIN_FILE", toolchain_file.to_str().unwrap());
+        cmake_conf.define("ANDROID_ABI", abi);
         }
 
         let openssl_root_dir = openssl_artifacts().lib_dir().parent().unwrap();
